@@ -1,0 +1,288 @@
+---
+title: "pikastream-video-meeting"
+description: "Join Google Meet and Zoom calls as a real-time AI avatar with voice cloning and avatar generation."
+---
+
+The `pikastream-video-meeting` skill lets an AI agent join a Google Meet or Zoom call on your behalf as a live, interactive avatar. The bot speaks in a cloned or default voice, draws on your workspace context to hold informed conversations, and retrieves meeting notes when it leaves.
+
+**Pricing:** $0.275 / min
+
+**Trigger:** The agent activates this skill when you drop a Google Meet or Zoom link into the conversation, or ask it to join a meeting.
+
+## Features
+
+<CardGroup cols={2}>
+  <Card title="Real-time avatar" icon="circle-user">
+    Joins meetings with a generated or custom portrait image rendered live via PikaStreaming.
+  </Card>
+  <Card title="Voice cloning" icon="microphone">
+    Clone your voice from a 10-second to 5-minute audio recording. The bot speaks in your cloned voice during the call.
+  </Card>
+  <Card title="AI avatar generation" icon="wand-magic-sparkles">
+    Generate a portrait headshot via OpenAI image models, or supply your own image. The bot asks before generating — it never auto-generates without your input.
+  </Card>
+  <Card title="Automatic billing" icon="credit-card">
+    Checks your Pika credit balance before every join. If credits are low, it creates a payment checkout link and waits for payment to complete before proceeding.
+  </Card>
+  <Card title="Context-aware conversation" icon="brain">
+    Reads your workspace files (MEMORY.md, daily logs, identity files) and synthesizes a concise reference card the bot uses to hold natural, informed conversations during the meeting.
+  </Card>
+  <Card title="Post-meeting notes" icon="file-lines">
+    Automatically retrieves and shares meeting notes after the bot leaves the call.
+  </Card>
+</CardGroup>
+
+## Requirements
+
+- Python 3.10+
+- `PIKA_DEV_KEY` environment variable (get one at [pika.me/dev](https://www.pika.me/dev/))
+- `ffmpeg` — optional, required only for audio format conversion during voice cloning
+- `requests>=2.32.5` (installed via `requirements.txt`)
+
+## Installation
+
+Run once after installing the skill to install Python dependencies:
+
+```bash
+pip install -r skills/pikastream-video-meeting/requirements.txt
+```
+
+## First-time setup
+
+Before the bot can join a meeting, it needs an avatar image and a voice. The agent handles both interactively on first use.
+
+### Avatar setup
+
+The agent checks whether `identity/videomeeting-avatar.png` exists and is larger than 1 KB.
+
+- **If the file is missing or too small**, the agent asks: *"I need an avatar image for the video meeting (a headshot or portrait). Send me an image, or say 'generate' and I'll create one for you."*
+  - **You send an image** — saved to `identity/videomeeting-avatar.png`.
+  - **You say "generate"** — the agent runs `generate-avatar` (see [Commands](#commands)) and shows you the result. You can keep it or regenerate.
+  - The agent will not proceed until you respond and an avatar is confirmed.
+
+- **If the file already exists and is valid**, the agent reuses it without prompting.
+
+### Voice setup
+
+The agent checks whether `life/voice_id.txt` exists and is non-empty.
+
+- **If it exists**, the agent reads `life/voice_config.json` and checks the `cloned_at` date. If 6 or more days have passed, it warns you that the voice may have expired (see [Voice clone retention](#voice-clone-retention)) and offers to re-clone.
+- **If it does not exist**, the agent asks: *"I don't have a voice clone yet. You can: (a) send me a voice recording (10s–5min, clear speech) and I'll clone it, or (b) say 'skip' to use a default voice."*
+  - **You send an audio file** — the agent runs `clone-voice` and confirms the new voice ID.
+  - **You say "skip"** — the bot uses the built-in `English_radiant_girl` default voice.
+
+## Join flow
+
+<Steps>
+  <Step title="Avatar and voice check">
+    The agent verifies that `identity/videomeeting-avatar.png` exists and is larger than 1 KB, and that `life/voice_id.txt` exists and is non-empty. If either is missing, it runs the [first-time setup](#first-time-setup) steps above before continuing.
+  </Step>
+  <Step title="Gather workspace context">
+    The agent reads your workspace files — MEMORY.md, daily logs, identity files, and any other relevant data — and synthesizes a concise reference card written to `/tmp/meeting_system_prompt.txt`. The card follows a strict format: concrete facts, recent activity, known people, and a one-line "right now" summary. If no workspace data is available, the agent asks for a bot display name and keeps the card minimal.
+  </Step>
+  <Step title="Run the join command">
+    The agent runs the `join` subcommand with your meeting URL, bot name, avatar image, voice ID, and the synthesized system prompt file:
+
+    ```bash
+    python skills/pikastream-video-meeting/scripts/pikastreaming_videomeeting.py join \
+      --meet-url https://meet.google.com/abc-defg-hij \
+      --bot-name "Alex" \
+      --image identity/videomeeting-avatar.png \
+      --system-prompt-file /tmp/meeting_system_prompt.txt \
+      --voice-id voice_Alex_20260101120000
+    ```
+
+    Before attempting to join, the script runs a full funding check. If your balance is below the minimum, it outputs a `checkout_url` (exit code 6) for you to complete payment, then polls until funded.
+  </Step>
+  <Step title="Bot joins the meeting">
+    The script polls the session status and prints a JSON status line each time the status changes. Once the session reaches `ready` state (or both video and bot connections are confirmed), the agent tells you the bot is in the meeting.
+  </Step>
+  <Step title="Leave the meeting">
+    Say **"leave"** in the chat. The agent runs the `leave` subcommand with the session ID captured from the `join` output. The bot exits the call and meeting notes are retrieved.
+  </Step>
+</Steps>
+
+## Commands
+
+All commands are subcommands of `pikastreaming_videomeeting.py`. Run them from your workspace root with `PIKA_DEV_KEY` set in the environment.
+
+### `join`
+
+Joins a Google Meet or Zoom call as an AI avatar bot.
+
+```bash
+python skills/pikastream-video-meeting/scripts/pikastreaming_videomeeting.py join \
+  --meet-url <url> \
+  --bot-name <name> \
+  --image <path-to-avatar> \
+  [--voice-id <id>] \
+  [--meeting-password <password>] \
+  [--system-prompt <text>] \
+  [--system-prompt-file <path>] \
+  [--timeout-sec 90] \
+  [--platform google_meet|zoom]
+```
+
+<ParamField path="--meet-url" type="string" required>
+  Full URL of the Google Meet or Zoom meeting to join (e.g. `https://meet.google.com/abc-defg-hij`). The platform is inferred automatically from the URL; pass `--platform` to override.
+</ParamField>
+
+<ParamField path="--bot-name" type="string" required>
+  Display name the bot uses inside the meeting.
+</ParamField>
+
+<ParamField path="--image" type="string">
+  Path to the avatar image file (PNG or JPEG). Defaults to the built-in placeholder avatar if omitted. The image must exist and be non-empty.
+</ParamField>
+
+<ParamField path="--voice-id" type="string">
+  Voice ID to use for the bot's speech. Accepts a cloned voice ID (e.g. `voice_Alex_20260101120000`) or the string name of a built-in voice. Defaults to `English_radiant_girl` if omitted.
+</ParamField>
+
+<ParamField path="--meeting-password" type="string">
+  Password for password-protected meetings.
+</ParamField>
+
+<ParamField path="--system-prompt" type="string">
+  Inline system prompt text for the meeting bot. Mutually exclusive with `--system-prompt-file`; if both are provided, `--system-prompt-file` takes priority.
+</ParamField>
+
+<ParamField path="--system-prompt-file" type="string">
+  Path to a file containing the system prompt. Takes priority over `--system-prompt`. The agent writes the synthesized workspace context card to `/tmp/meeting_system_prompt.txt` and passes that path here.
+</ParamField>
+
+<ParamField path="--timeout-sec" type="integer">
+  Seconds to wait for the session to reach `ready` state before exiting with code 5 (timeout). Defaults to `90`.
+</ParamField>
+
+<ParamField path="--platform" type="string">
+  Explicitly set the meeting platform: `google_meet` or `zoom`. If omitted, the platform is inferred from the meeting URL.
+</ParamField>
+
+---
+
+### `leave`
+
+Removes the bot from an active meeting session.
+
+```bash
+python skills/pikastream-video-meeting/scripts/pikastreaming_videomeeting.py leave \
+  --session-id <session-id>
+```
+
+<ParamField path="--session-id" type="string" required>
+  The session ID returned in the JSON output of the `join` command.
+</ParamField>
+
+---
+
+### `generate-avatar`
+
+Generates an avatar portrait image via the OpenAI image proxy and saves it to disk.
+
+```bash
+python skills/pikastream-video-meeting/scripts/pikastreaming_videomeeting.py generate-avatar \
+  --output identity/videomeeting-avatar.png \
+  [--prompt "a cartoon cat, portrait headshot suitable for video calls"] \
+  [--model gpt-image-1-mini]
+```
+
+<ParamField path="--output" type="string" required>
+  Path where the generated image is saved. Parent directories are created automatically.
+</ParamField>
+
+<ParamField path="--prompt" type="string">
+  Custom text prompt for the image generation model. If omitted, a default prompt is used: a friendly, photorealistic portrait headshot with a clean background, professional but warm expression, centered face, suitable for video calls.
+</ParamField>
+
+<ParamField path="--model" type="string">
+  OpenAI image model to use. Defaults to `gpt-image-1-mini`.
+</ParamField>
+
+---
+
+### `clone-voice`
+
+Clones a voice from an audio file and writes the resulting voice ID to `life/voice_id.txt`.
+
+```bash
+python skills/pikastream-video-meeting/scripts/pikastreaming_videomeeting.py clone-voice \
+  --audio recording.m4a \
+  --name Alex \
+  [--noise-reduction]
+```
+
+<ParamField path="--audio" type="string" required>
+  Path to the source audio file. See [Supported audio formats](#supported-audio-formats) for accepted types. Recommended: 10 seconds to 5 minutes of clear speech.
+</ParamField>
+
+<ParamField path="--name" type="string" required>
+  Name used to label the cloned voice. Becomes part of the generated voice ID (e.g. `voice_Alex_20260101120000`).
+</ParamField>
+
+<ParamField path="--noise-reduction" type="boolean">
+  Enable noise reduction during the cloning process. Useful for recordings made in noisy environments.
+</ParamField>
+
+On success (exit 0), the script writes:
+- `life/voice_id.txt` — the new voice ID string.
+- `life/voice_config.json` — metadata including `voice_id`, `cloned_at` timestamp, `source_audio` filename, and a retention warning.
+
+## Supported audio formats
+
+<Note>
+  Native formats are uploaded directly. Convertible formats require `ffmpeg` to be installed — the script converts them to MP3 before upload.
+</Note>
+
+| Format | Supported natively | Requires ffmpeg |
+|---|---|---|
+| `.mp3` | Yes | — |
+| `.m4a` | Yes | — |
+| `.wav` | Yes | — |
+| `.ogg` | — | Yes |
+| `.mp4` | — | Yes |
+| `.webm` | — | Yes |
+| `.mkv` | — | Yes |
+| `.mov` | — | Yes |
+| `.flac` | — | Yes |
+| `.aac` | — | Yes |
+| `.wma` | — | Yes |
+| `.opus` | — | Yes |
+
+## Voice clone retention
+
+<Warning>
+  Cloned voices may be deleted after **7 days of non-use**. If you haven't used your cloned voice in 6 or more days, the agent will warn you and offer to re-clone from a new recording before joining a meeting.
+</Warning>
+
+To avoid losing your voice clone, use the skill at least once every 7 days, or re-run `clone-voice` with a fresh recording when prompted.
+
+## API behavior
+
+### Balance and funding
+
+Every `join` invocation runs a full funding check before attempting to join. The flow:
+
+1. Reads `PIKA_DEV_KEY` from the environment.
+2. Calls the Pika balance endpoint. If balance is at or above the minimum (100 credits), it proceeds immediately.
+3. If balance is below the minimum, it fetches available credit packs, selects the smallest sufficient pack, creates a Stripe checkout session, and prints a JSON object containing `checkout_url` to stdout.
+4. Polls every 10 seconds (up to 300 seconds) for payment confirmation before joining.
+
+### Session polling
+
+After a session is created, the script polls the session status endpoint every 2 seconds until the deadline set by `--timeout-sec`. It prints a JSON status line only when the `status` field changes, reducing noise. The bot is considered connected when the session reaches `ready` state or when both `video_worker_connected` and `meeting_bot_connected` are `true`.
+
+### Exit codes
+
+| Code | Meaning |
+|---|---|
+| `0` | Success — session joined or command completed. |
+| `2` | Validation error — missing required argument, file not found, or platform could not be inferred. |
+| `3` | HTTP error — the Pika API returned a non-OK response. |
+| `4` | Session error — the session reached `error` or `closed` status before becoming ready. |
+| `5` | Timeout — the session did not become ready within `--timeout-sec` seconds. |
+| `6` | Insufficient credits — the stdout JSON contains a `checkout_url` for the user to complete payment. |
+
+<Tip>
+  When exit code 6 is returned, parse the JSON on stdout to extract `checkout_url` and present it to the user. The script polls for payment for up to 300 seconds. If payment completes within that window, the join proceeds automatically. If the poll times out, exit code 6 is returned and you must re-run the `join` command after completing payment.
+</Tip>

@@ -1,0 +1,81 @@
+---
+title: "Exit codes"
+description: "Exit codes returned by Pika Skills scripts and what they mean."
+---
+
+`pikastreaming_videomeeting.py` exits with a numeric code that indicates the outcome of the command. Agents and shell scripts should inspect the exit code to decide how to proceed.
+
+## Summary
+
+| Code | Name | Meaning |
+|---|---|---|
+| `0` | Success | The command completed successfully. |
+| `2` | Validation error | Invalid arguments, missing required files, or unresolvable platform. |
+| `3` | HTTP error | An API request failed with a non-2xx HTTP status code. |
+| `4` | Session error | The meeting bot encountered an error or the session closed unexpectedly. |
+| `5` | Timeout | The bot did not reach `ready` status within `--timeout-sec` seconds. |
+| `6` | Insufficient credits | The account does not have enough credits to start a session. |
+
+---
+
+## Code details
+
+### 0 — Success
+
+The command completed without error. For `join`, this means the meeting bot connected and reached `ready` status. For `leave`, the session was closed cleanly. For `generate-avatar` and `clone-voice`, the output was written to disk successfully.
+
+### 2 — Validation error
+
+A pre-flight check failed before any API call was made. Common causes:
+
+- A required flag is missing or has an invalid value.
+- `--system-prompt-file` points to a file that does not exist.
+- The meeting URL does not contain a recognizable domain and `--platform` was not passed.
+- The avatar image is missing or has zero bytes.
+- The audio file passed to `clone-voice` does not exist.
+
+Inspect stderr for a specific error message. No API call was made, so no credits were consumed.
+
+### 3 — HTTP error
+
+A request to the Pika API returned a non-2xx status code, or the response could not be parsed. The error is printed to stderr with the HTTP status and a truncated response body. Retry after verifying your `PIKA_DEV_KEY` is valid and the service is reachable.
+
+### 4 — Session error
+
+The meeting platform reported an error after the session was created. The bot's status transitioned to `error` or `closed` with an error message. Inspect stderr for the error detail returned by the session. Common causes include the meeting URL being invalid or the meeting having already ended.
+
+### 5 — Timeout
+
+The bot was created but did not reach `ready` status before `--timeout-sec` elapsed (default: 90 seconds). The session may still be active on the server. Increase `--timeout-sec` for slow-to-start meetings, or check that the meeting URL is correct and the room is open.
+
+### 6 — Insufficient credits
+
+<Info>
+  When exit code 6 is returned, the script has already printed a JSON object to stdout containing a `checkout_url`. Agents must surface this URL to the user so they can complete payment. The script polls for up to 300 seconds — if payment arrives in time, the join continues automatically and exits with code `0` instead. Exit code `6` is returned only if the balance check fails without a valid checkout, or the 300-second polling window elapses without payment.
+</Info>
+
+The account's credit balance is below the minimum required to start a meeting session (100 credits). The script automatically creates a checkout session and prints the payment URL to stdout before exiting.
+
+The stdout JSON for this case has `status: "needs_topup"`:
+
+```json
+{
+  "status": "needs_topup",
+  "balance": 42,
+  "product": "<credit pack name>",
+  "credits": 500,
+  "checkout_url": "https://...",
+  "message": "Open the checkout URL to purchase <credit pack name>. Waiting for payment..."
+}
+```
+
+#### Checkout flow
+
+1. The script checks the account balance before attempting to join.
+2. If the balance is below 100 credits, it fetches available credit packs and selects the smallest pack that covers the deficit (or the largest pack if none are sufficient).
+3. It creates a Stripe checkout session and prints the JSON above to stdout, then flushes.
+4. The script polls the balance every 10 seconds for up to 300 seconds.
+5. Once the balance is sufficient, it prints `{"status": "funded", "balance": <n>}` and continues joining the meeting.
+6. If 300 seconds elapse without payment, it prints `{"status": "payment_timeout", ...}` and returns exit code 6.
+
+Agents should parse the `checkout_url` field and present it to the user immediately. Do not hide or discard the stdout JSON on exit code 6.

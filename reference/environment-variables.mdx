@@ -1,0 +1,83 @@
+---
+title: "Environment variables"
+description: "Environment variables used by Pika Skills scripts."
+---
+
+Pika Skills scripts read configuration from environment variables at runtime. `PIKA_DEV_KEY` is the only required variable. The two URL overrides are optional and intended for advanced use.
+
+## Summary
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `PIKA_DEV_KEY` | Yes | — | Pika Developer Key (`dk_...`). Get one at [pika.me/dev](https://www.pika.me/dev/) |
+| `PIKA_API_BASE_URL` | No | `https://srkibaanghvsriahb.pika.art` | Override the Pika API base URL |
+| `PIKA_VIDEO_API_BASE_URL` | No | `https://7i30hpv4bo9ud5mhianq.pika.art` | Override the video API base URL |
+
+---
+
+## Variable reference
+
+<ParamField path="PIKA_DEV_KEY" type="string" required>
+  Your Pika Developer Key, which starts with `dk_`. This key authenticates all requests to the Pika API proxy and is required before any Pika Skills script will run. If the variable is unset and no key is found in `~/.pika/devkey`, the script exits with an error pointing to the sign-up page.
+
+  Get a key at [https://www.pika.me/dev/](https://www.pika.me/dev/).
+</ParamField>
+
+<ParamField path="PIKA_API_BASE_URL" type="string" default="https://srkibaanghvsriahb.pika.art">
+  Base URL for the Pika API proxy. The script appends `/proxy/realtime` to this value to form the endpoint used for meeting session management and balance checks.
+
+  <Note>
+    This variable is intended for advanced use and testing against non-production environments. Do not change it in normal usage.
+  </Note>
+</ParamField>
+
+<ParamField path="PIKA_VIDEO_API_BASE_URL" type="string" default="https://7i30hpv4bo9ud5mhianq.pika.art">
+  Base URL for the Pika video API proxy. Used by the `generate-avatar` and `clone-voice` subcommands to reach the OpenAI image and Minimax voice endpoints.
+
+  <Note>
+    This variable is intended for advanced use and testing against non-production environments. Do not change it in normal usage.
+  </Note>
+</ParamField>
+
+---
+
+## Setting PIKA_DEV_KEY
+
+### For the current shell session
+
+```bash
+export PIKA_DEV_KEY="dk_your-key-here"
+```
+
+This is sufficient for running scripts interactively in a single terminal session. The variable is lost when the shell exits.
+
+### For persistence across sessions
+
+Add the export to your shell profile so it is set automatically on login:
+
+```bash
+# ~/.bashrc or ~/.zshrc
+export PIKA_DEV_KEY="dk_your-key-here"
+```
+
+Reload your profile for the change to take effect in the current session:
+
+```bash
+source ~/.bashrc   # or source ~/.zshrc
+```
+
+### File-based fallback
+
+If `PIKA_DEV_KEY` is not set in the environment, the script checks for a key stored in `~/.pika/devkey`. This file should contain only the key, with no surrounding whitespace:
+
+```bash
+mkdir -p ~/.pika
+echo "dk_your-key-here" > ~/.pika/devkey
+chmod 600 ~/.pika/devkey
+```
+
+The environment variable takes priority over the file when both are present.
+
+### Getting a Developer Key
+
+Visit [https://www.pika.me/dev/](https://www.pika.me/dev/) to create an account and generate a Developer Key. Keys begin with `dk_` and are scoped to your account's credit balance.

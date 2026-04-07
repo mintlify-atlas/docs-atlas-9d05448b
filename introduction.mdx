@@ -1,0 +1,79 @@
+---
+title: "Introduction"
+description: "Pika Skills are open-source, self-contained modules that extend AI coding agents with real-world capabilities — powered by the Pika Developer API."
+---
+
+Pika Skills give AI coding agents like Claude Code and OpenClaw abilities they don't have out of the box: joining video meetings as a live avatar, cloning voices, generating avatars, and more. Each skill is a standalone directory you drop into your workspace. The agent reads it, understands it, and starts using it — no manual wiring required.
+
+## What makes skills different
+
+Most agent extensions require you to configure tool registries, write adapter code, or modify the agent's system prompt by hand. Pika Skills take a different approach: every skill ships a `SKILL.md` file that tells the agent exactly when to activate the skill, what to do step by step, and which scripts to call. When you install a skill, the agent auto-detects this file and handles the rest.
+
+<Note>
+  All skills require a `PIKA_DEV_KEY` environment variable to authenticate against the Pika Developer API. Get your key at [pika.me/dev](https://www.pika.me/dev/).
+</Note>
+
+## Skill anatomy
+
+Every skill is a self-contained directory with three components:
+
+| Component | Purpose |
+| --- | --- |
+| `SKILL.md` | The skill definition. Describes trigger conditions, step-by-step workflows, and agent instructions. The agent reads this file directly. |
+| `scripts/` | Executable Python or Bash scripts the agent invokes as part of the workflow. |
+| `requirements.txt` | Python dependencies for the skill's scripts. The agent runs `pip install -r requirements.txt` on first use. |
+
+### How `SKILL.md` works
+
+`SKILL.md` uses YAML frontmatter to declare the skill's name, trigger description, and runtime requirements (environment variables, system binaries). The body contains plain-language instructions the agent follows exactly — including conditional branches, user prompts, and command invocations.
+
+```yaml
+---
+name: pikastream-video-meeting
+description: |
+  Join a Google Meet or Zoom call as a video meeting agent via PikaStreaming.
+  Trigger: user drops a Google Meet or Zoom link, or asks to join a meeting.
+metadata:
+  openclaw:
+    requires:
+      env: ["PIKA_DEV_KEY"]
+      bins: ["python3"]
+    primaryEnv: "PIKA_DEV_KEY"
+---
+```
+
+Because the trigger condition lives inside the skill itself, the agent activates the skill automatically when the condition is met — for example, when you paste a Google Meet link into the chat.
+
+## Supported agents
+
+Pika Skills are designed to work with any AI coding agent that can read files in the workspace. They have been tested with:
+
+- **Claude Code** — Anthropic's coding agent
+- **OpenClaw** — includes first-class `metadata.openclaw` support for environment variable validation
+
+Any agent that reads `SKILL.md` from the workspace directory and follows its instructions can use a Pika Skill.
+
+## The Pika Developer API
+
+Every skill is backed by the [Pika Developer API](https://www.pika.me/dev/), which provides the real-time infrastructure skills need: streaming video sessions, voice cloning, AI image generation, billing, and balance management. Your `PIKA_DEV_KEY` authenticates all API calls. Skills handle the API interaction themselves — you never call endpoints directly.
+
+The API uses a credit-based billing model. Skills check your balance before performing billable operations and generate a checkout URL automatically if you need to top up.
+
+## Available skills
+
+<CardGroup cols={2}>
+  <Card title="pikastream-video-meeting" icon="video" href="/skills/pikastream-video-meeting">
+    Join Google Meet or Zoom calls as a real-time AI avatar. Supports voice cloning, AI avatar generation, context-aware conversation, and automatic post-meeting notes. Billed at **$0.275 / min**.
+  </Card>
+  <Card title="Contribute a skill" icon="plus" href="/reference/contributing">
+    Skills are open source under Apache 2.0. Add a `SKILL.md`, scripts, and a `requirements.txt` to contribute your own.
+  </Card>
+</CardGroup>
+
+## Next steps
+
+Ready to install your first skill and join a meeting?
+
+<Card title="Quickstart" icon="rocket" href="/quickstart">
+  Get your Pika Developer Key, set your environment variable, and join your first meeting in minutes.
+</Card>

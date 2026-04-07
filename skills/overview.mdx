@@ -1,0 +1,96 @@
+---
+title: "Skills overview"
+description: "Browse all available Pika Skills and understand how skills work."
+---
+
+Pika Skills are open-source, self-contained modules that extend AI coding agents (Claude Code, OpenClaw, and others) with new capabilities powered by the [Pika Developer API](https://www.pika.me/dev/).
+
+## What is a skill?
+
+A skill is a directory containing three things:
+
+- **`SKILL.md`** — The skill definition file. It tells the agent when to activate the skill, how to use it, and provides step-by-step workflow instructions. The agent reads this file and follows the described workflow autonomously.
+- **`scripts/`** — Executable scripts (Python, Bash, etc.) that the agent invokes as part of the skill workflow.
+- **`requirements.txt`** — Python dependencies required by the skill's scripts.
+
+When you install a skill into your agent workspace, the agent automatically detects the `SKILL.md` and knows how to use the skill — no manual configuration needed.
+
+## How agents detect and activate skills
+
+Agents discover skills through the `SKILL.md` frontmatter. The frontmatter declares the skill's name, a natural-language description with an explicit **trigger condition**, and environment or binary requirements the agent should check before activation.
+
+Here is an example of a real `SKILL.md` frontmatter:
+
+```yaml
+---
+name: pikastream-video-meeting
+description: |
+  Join a Google Meet or Zoom call as a video meeting agent via PikaStreaming.
+  Trigger: user drops a Google Meet or Zoom link, or asks to join a meeting.
+metadata:
+  openclaw:
+    requires:
+      env: ["PIKA_DEV_KEY"]
+      bins: ["python3"]
+    primaryEnv: "PIKA_DEV_KEY"
+---
+```
+
+### Frontmatter schema
+
+| Field | Type | Description |
+|---|---|---|
+| `name` | string | Unique skill identifier, matches the directory name. |
+| `description` | string | Human-readable description. Include a `Trigger:` line that tells the agent exactly when to activate the skill. |
+| `metadata.openclaw.requires.env` | string[] | Environment variables that must be set before the skill can run. |
+| `metadata.openclaw.requires.bins` | string[] | Binaries (e.g. `python3`) that must be present on the system. |
+| `metadata.openclaw.primaryEnv` | string | The most important environment variable — typically the API key. |
+
+## Available skills
+
+<CardGroup cols={2}>
+  <Card
+    title="pikastream-video-meeting"
+    icon="video"
+    href="/skills/pikastream-video-meeting"
+  >
+    Join a Google Meet or Zoom call as a real-time AI avatar with voice cloning and avatar generation. **$0.275 / min.**
+  </Card>
+</CardGroup>
+
+## Getting started
+
+### 1. Get a Pika Developer Key
+
+Visit [pika.me/dev](https://www.pika.me/dev/) and create a Developer Key. It starts with `dk_`.
+
+### 2. Set the environment variable
+
+```bash
+export PIKA_DEV_KEY="dk_your-key-here"
+```
+
+Add this to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.) to persist it across sessions.
+
+### 3. Install a skill
+
+Point your agent at the skill directory and ask it to install:
+
+```
+install /path/to/Pika-Skills/pikastream-video-meeting/
+```
+
+### 4. Use it naturally
+
+Once installed, interact with your agent as you normally would. Drop a Google Meet link and the agent will automatically activate the `pikastream-video-meeting` skill, check your balance, and guide you through joining.
+
+## Contributing a new skill
+
+<Info>
+  Pika Skills is open source under the Apache 2.0 license. Contributions are welcome. To add a new skill:
+
+  1. Create a new directory named after your skill.
+  2. Add a `SKILL.md` with the frontmatter schema described above, including a clear `Trigger:` line in the `description` field.
+  3. Add your scripts to a `scripts/` subdirectory and list Python dependencies in `requirements.txt`.
+  4. Open a pull request on the [Pika-Skills repository](https://github.com/Pika-Labs/Pika-Skills).
+</Info>

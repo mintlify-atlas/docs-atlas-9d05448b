@@ -1,0 +1,170 @@
+---
+title: "Command reference"
+description: "Complete reference for all pikastreaming_videomeeting.py commands and flags."
+---
+
+The `pikastreaming_videomeeting.py` script exposes four subcommands: `join`, `leave`, `generate-avatar`, and `clone-voice`. All subcommands require `PIKA_DEV_KEY` to be set in the environment.
+
+```bash
+python scripts/pikastreaming_videomeeting.py <subcommand> [flags]
+```
+
+---
+
+## join
+
+Join a Google Meet or Zoom call as a real-time AI avatar bot.
+
+```bash
+python scripts/pikastreaming_videomeeting.py join \
+  --meet-url <url> \
+  --bot-name <name> \
+  --image identity/videomeeting-avatar.png \
+  --system-prompt-file /tmp/meeting_system_prompt.txt \
+  --voice-id <id> \
+  [--meeting-password <pw>] \
+  [--timeout-sec 90]
+```
+
+Before joining, the script runs a full funding check. If your account has insufficient credits, it outputs a `checkout_url` in JSON and exits with code `6`. See [exit codes](/reference/exit-codes) for details.
+
+<ParamField path="--meet-url" type="string" required>
+  The full URL of the Google Meet or Zoom meeting to join. The platform is inferred automatically from the URL (`meet.google.com` → `google_meet`, `zoom.us` / `zoom.com` → `zoom`). Pass `--platform` to override if detection fails.
+</ParamField>
+
+<ParamField path="--bot-name" type="string" required>
+  Display name for the bot inside the meeting room.
+</ParamField>
+
+<ParamField path="--platform" type="string">
+  Override automatic platform detection. Accepted values: `google_meet`, `zoom`. Required only when the meeting URL does not contain a recognizable domain.
+</ParamField>
+
+<ParamField path="--voice-id" type="string">
+  Voice ID to use for the bot's speech. Defaults to `English_radiant_girl` when omitted. Pass a cloned voice ID from `life/voice_id.txt` to use a custom voice.
+</ParamField>
+
+<ParamField path="--meeting-password" type="string">
+  Password for the meeting, if the room requires one.
+</ParamField>
+
+<ParamField path="--image" type="string">
+  Path to a local image file or an HTTPS URL pointing to the avatar image. When a URL is provided, the script downloads it to a temporary file before uploading. Defaults to the built-in placeholder avatar (`assets/placeholder-avatar.jpg`) when omitted.
+</ParamField>
+
+<ParamField path="--system-prompt" type="string">
+  System prompt text passed directly to the meeting bot. Ignored when `--system-prompt-file` is also provided, because the file takes priority.
+</ParamField>
+
+<ParamField path="--system-prompt-file" type="string">
+  Path to a plain-text file whose contents are used as the system prompt. Takes priority over `--system-prompt`. The script exits with code `2` if the file does not exist.
+</ParamField>
+
+<ParamField path="--timeout-sec" type="number" default="90">
+  How long in seconds to wait for the bot to reach `ready` status before giving up. Exits with code `5` on timeout.
+</ParamField>
+
+### Output
+
+On success the script prints one JSON object per status change to stdout:
+
+```json
+{"session_id": "sess_abc123", "platform": "google_meet", "status": "created"}
+{"session_id": "sess_abc123", "status": "ready", "video": true, "bot": true}
+```
+
+Capture the `session_id` from the first line to use with the `leave` subcommand.
+
+---
+
+## leave
+
+Remove the bot from a meeting and close its session.
+
+```bash
+python scripts/pikastreaming_videomeeting.py leave --session-id <id>
+```
+
+<ParamField path="--session-id" type="string" required>
+  The session ID returned in the JSON output of the `join` command.
+</ParamField>
+
+### Output
+
+```json
+{"session_id": "sess_abc123", "closed": true}
+```
+
+---
+
+## generate-avatar
+
+Generate an AI avatar image via the Pika OpenAI image proxy and save it to disk.
+
+```bash
+python scripts/pikastreaming_videomeeting.py generate-avatar \
+  --output identity/videomeeting-avatar.png \
+  [--prompt "a cartoon cat, portrait headshot suitable for video calls"] \
+  [--model gpt-image-1-mini]
+```
+
+<ParamField path="--output" type="string" required>
+  File system path where the generated PNG image will be saved. Parent directories are created automatically if they do not exist.
+</ParamField>
+
+<ParamField path="--prompt" type="string">
+  Custom description used to generate the avatar. When omitted, the script uses a built-in default: a friendly, photorealistic portrait headshot with a clean background suitable for video calls.
+</ParamField>
+
+<ParamField path="--model" type="string" default="gpt-image-1-mini">
+  OpenAI image model to use for generation. The image is generated at 1024×1024 with medium quality and PNG output format.
+</ParamField>
+
+### Output
+
+```json
+{"path": "identity/videomeeting-avatar.png", "size_bytes": 204800}
+```
+
+---
+
+## clone-voice
+
+Clone a voice from an audio recording and save the voice ID to `life/voice_id.txt`.
+
+```bash
+python scripts/pikastreaming_videomeeting.py clone-voice \
+  --audio recording.m4a \
+  --name "Alice" \
+  [--noise-reduction]
+```
+
+<ParamField path="--audio" type="string" required>
+  Path to the audio file to clone from. Natively supported formats: `.mp3`, `.m4a`, `.wav`. Formats requiring conversion via `ffmpeg`: `.ogg`, `.mp4`, `.webm`, `.mkv`, `.mov`, `.flac`, `.aac`, `.wma`, `.opus`. The recording should be 10 seconds to 5 minutes of clear speech.
+</ParamField>
+
+<ParamField path="--name" type="string" required>
+  A label for the cloned voice. Used to construct the voice ID in the format `voice_<name>_<timestamp>`.
+</ParamField>
+
+<ParamField path="--noise-reduction" type="boolean">
+  When this flag is present, noise reduction is applied to the audio during the cloning process. Omit the flag to skip noise reduction.
+</ParamField>
+
+### Output
+
+On success the script writes the voice ID to `life/voice_id.txt` and `life/voice_config.json`, then prints:
+
+```json
+{
+  "voice_id": "voice_Alice_20260101120000",
+  "provider": "pika",
+  "cloned_at": "2026-01-01T12:00:00+00:00",
+  "source_audio": "recording.m4a",
+  "retention_warning": "Cloned voices may be deleted after 7 days of non-use"
+}
+```
+
+<Warning>
+  Cloned voices are subject to deletion after 7 days of non-use. Re-clone from a new recording if more than 6 days have elapsed since the last clone.
+</Warning>

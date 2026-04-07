@@ -1,0 +1,55 @@
+{
+  "projectType": "sdk-library",
+  "projectName": "Pika Skills",
+  "projectDescription": "A collection of open-source skills that extend AI coding agents (like Claude Code) with real-world capabilities powered by the Pika Developer API.",
+  "theme": "luma",
+  "primaryColor": "#040404",
+  "lightColor": null,
+  "darkColor": "#040404",
+  "navigation": {
+    "groups": [
+      {
+        "group": "Get Started",
+        "pages": [
+          "introduction",
+          "quickstart"
+        ]
+      },
+      {
+        "group": "Skills",
+        "pages": [
+          "skills/overview",
+          "skills/pikastream-video-meeting"
+        ]
+      },
+      {
+        "group": "Reference",
+        "pages": [
+          "reference/commands",
+          "reference/environment-variables",
+          "reference/exit-codes",
+          "reference/contributing"
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Self-contained skill modules with SKILL.md definitions for AI agent auto-detection",
+    "Real-time AI avatar joining Google Meet and Zoom calls via PikaStreaming",
+    "Voice cloning from short audio recordings",
+    "AI avatar generation via OpenAI image models",
+    "Automatic billing and credit management with checkout flow",
+    "Context-aware conversation using workspace memory and identity files",
+    "Post-meeting notes retrieval",
+    "Works with Claude Code, OpenClaw, and other AI coding agents"
+  ],
+  "publicApiSurface": [
+    "pikastreaming_videomeeting.py join --meet-url --bot-name --image --voice-id --system-prompt-file",
+    "pikastreaming_videomeeting.py leave --session-id",
+    "pikastreaming_videomeeting.py generate-avatar --output --prompt --model",
+    "pikastreaming_videomeeting.py clone-voice --audio --name --noise-reduction",
+    "PIKA_DEV_KEY environment variable",
+    "SKILL.md frontmatter schema (name, description, metadata.openclaw)",
+    "Exit codes: 0=ok, 2=validation, 3=http, 4=session error, 5=timeout, 6=funding"
+  ]
+}

@@ -1,0 +1,113 @@
+---
+title: "Contributing"
+description: "How to contribute new skills to the Pika Skills repository."
+---
+
+Pika Skills is an open-source collection licensed under Apache 2.0. New skills are welcome — each skill is a self-contained directory that agents can install independently.
+
+## How to add a new skill
+
+<Steps>
+  <Step title="Create a directory for your skill">
+    Choose a descriptive, kebab-case name and create a directory at the repository root:
+
+    ```bash
+    mkdir my-new-skill
+    ```
+
+    The directory name becomes the skill's identifier and is used by agents when referencing or installing the skill.
+  </Step>
+
+  <Step title="Add SKILL.md with required frontmatter">
+    Create `my-new-skill/SKILL.md`. The frontmatter tells agents when to activate the skill, what environment variables it requires, and which binaries it depends on.
+
+    ```yaml
+    ---
+    name: my-new-skill
+    description: |
+      Brief description of what the skill does.
+      Trigger: the condition or phrase that should cause the agent to activate this skill.
+    metadata:
+      openclaw:
+        requires:
+          env: ["PIKA_DEV_KEY"]
+          bins: ["python3"]
+        primaryEnv: "PIKA_DEV_KEY"
+    ---
+    ```
+
+    Below the frontmatter, write the full skill instructions in Markdown: setup steps, workflow, and any agent-specific rules.
+  </Step>
+
+  <Step title="Add a scripts/ directory with executable scripts">
+    Place all runnable scripts under `my-new-skill/scripts/`. Scripts can be Python, Bash, or any other language, as long as the required runtime is listed in `requires.bins`.
+
+    ```bash
+    mkdir my-new-skill/scripts
+    # Add your script(s)
+    chmod +x my-new-skill/scripts/my_script.py
+    ```
+  </Step>
+
+  <Step title="Add requirements.txt">
+    List Python dependencies so agents can install them automatically before running your scripts:
+
+    ```bash
+    # my-new-skill/requirements.txt
+    requests>=2.32.5
+    ```
+
+    Even if your skill has no Python dependencies, include an empty `requirements.txt` so agents do not need to special-case its absence.
+  </Step>
+
+  <Step title="Update the repository README">
+    Add a row to the "Available Skills" table in `README.md` with the skill directory name, pricing (if applicable), and a one-line description:
+
+    ```markdown
+    | [my-new-skill](my-new-skill/) | Free | What your skill does in one sentence. |
+    ```
+  </Step>
+</Steps>
+
+---
+
+## SKILL.md frontmatter schema
+
+The frontmatter block must be valid YAML. The following example is taken directly from the `pikastream-video-meeting` skill:
+
+```yaml
+---
+name: pikastream-video-meeting
+description: |
+  Join a Google Meet or Zoom call as a video meeting agent via PikaStreaming.
+  Trigger: user drops a Google Meet or Zoom link, or asks to join a meeting.
+metadata:
+  openclaw:
+    requires:
+      env: ["PIKA_DEV_KEY"]
+      bins: ["python3"]
+    primaryEnv: "PIKA_DEV_KEY"
+---
+```
+
+| Field | Purpose |
+|---|---|
+| `name` | Unique identifier matching the directory name. |
+| `description` | What the skill does, followed by a `Trigger:` line that tells the agent when to activate it. |
+| `metadata.openclaw.requires.env` | Environment variables the agent must verify are set before activating the skill. |
+| `metadata.openclaw.requires.bins` | Binaries the agent checks for availability (e.g., `python3`, `ffmpeg`). |
+| `metadata.openclaw.primaryEnv` | The single most important environment variable — used for display and quick validation. |
+
+---
+
+## Best practices
+
+**Write a clear `Trigger` line.** The `description` field is parsed by the agent to decide when to invoke your skill. Start with what the skill does, then add a `Trigger:` sentence that describes the exact user action or input pattern that should activate it.
+
+**List all dependencies in `requires.env` and `requires.bins`.** Agents use these lists to check prerequisites before running any script. A missing entry means the agent may attempt to run your script without the necessary configuration in place.
+
+**Include a `requirements.txt`.** Agents can automatically run `pip install -r requirements.txt` during first-time setup. Pinning minimum versions (e.g., `requests>=2.32.5`) avoids compatibility surprises without over-constraining the environment.
+
+**Design scripts for non-interactive use.** Skills are invoked by agents in automated pipelines. Scripts must not block on stdin unless a TTY is guaranteed. Use exit codes to communicate outcomes — see the [exit codes reference](/reference/exit-codes) for the conventions used by existing skills.
+
+**Keep the skill directory self-contained.** Do not rely on files outside your skill's directory other than standard workspace conventions (e.g., `identity/`, `life/`) documented in your `SKILL.md`.

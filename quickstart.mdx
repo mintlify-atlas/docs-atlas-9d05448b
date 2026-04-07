@@ -1,80 +1,159 @@
 ---
 title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+description: "Get your first Pika Skill installed and running in minutes."
 ---
 
-## Get started in three steps
+This guide walks you from zero to joining a Google Meet call as a real-time AI avatar using the `pikastream-video-meeting` skill.
 
-Get your documentation site running locally and make your first customization.
+## Prerequisites
 
-### Step 1: Set up your local environment
+- An AI coding agent (Claude Code, OpenClaw, or similar)
+- Python 3.10+
+- A Google Meet or Zoom link to join
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+<Steps>
+  <Step title="Get a Pika Developer Key">
+    Go to [pika.me/dev](https://www.pika.me/dev/) and sign up for a Developer Key. Your key starts with `dk_` and is used to authenticate all API calls made by your skills.
 
-### Step 2: Deploy your changes
+    <Note>
+      Keep your Developer Key secure. Treat it like a password — don't commit it to version control.
+    </Note>
+  </Step>
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+  <Step title="Set the PIKA_DEV_KEY environment variable">
+    Export your key in your terminal session:
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+    ```bash
+    export PIKA_DEV_KEY="dk_your-key-here"
+    ```
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+    <Tip>
+      To persist your key across sessions, add the export line to your shell profile (`~/.bashrc`, `~/.zshrc`, or `~/.profile`) so you don't have to re-export it every time.
+    </Tip>
+  </Step>
 
-### Step 3: Go live
+  <Step title="Clone the repository and install the skill">
+    Clone the Pika Skills repository:
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+    ```bash
+    git clone https://github.com/Pika-Labs/Pika-Skills.git
+    ```
 
-## Next steps
+    Install the skill's Python dependencies:
 
-Now that you have your docs running, explore these key features:
+    ```bash
+    pip install -r Pika-Skills/pikastream-video-meeting/requirements.txt
+    ```
+
+    Then tell your agent to install the skill by pointing it at the skill directory:
+
+    ```
+    install /path/to/Pika-Skills/pikastream-video-meeting/
+    ```
+
+    The agent reads `SKILL.md` and is ready to use the skill — no additional configuration needed.
+  </Step>
+
+  <Step title="Set up your avatar (first time only)">
+    The first time you use the skill, the agent checks whether `identity/videomeeting-avatar.png` exists. If it doesn't, it will ask:
+
+    > I need an avatar image for the video meeting (a headshot or portrait). Send me an image, or say "generate" and I'll create one for you.
+
+    You have two options:
+
+    - **Send an image** — upload any portrait or headshot. The agent saves it as your avatar.
+    - **Say "generate"** — the agent generates an AI avatar via OpenAI image models and asks if you want to keep it or regenerate.
+
+    ```bash
+    # The agent runs this when you say "generate":
+    python pikastream-video-meeting/scripts/pikastreaming_videomeeting.py generate-avatar \
+      --output identity/videomeeting-avatar.png
+    ```
+  </Step>
+
+  <Step title="Set up your voice (first time only)">
+    The agent also checks whether `life/voice_id.txt` exists. If it doesn't, it will ask:
+
+    > I don't have a voice clone yet. You can: (a) send me a voice recording (10s-5min, clear speech) and I'll clone it, or (b) say "skip" to use a default voice.
+
+    - **Send an audio recording** — the agent clones your voice and stores the voice ID locally.
+    - **Say "skip"** — the agent uses the default voice (`English_radiant_girl`).
+
+    ```bash
+    # The agent runs this when you send an audio file:
+    python pikastream-video-meeting/scripts/pikastreaming_videomeeting.py clone-voice \
+      --audio your-recording.mp3 --name YourName --noise-reduction
+    ```
+
+    <Warning>
+      Cloned voices may be deleted after 7 days of non-use. If your voice clone has expired, the agent will warn you and offer to re-clone from a new recording.
+    </Warning>
+  </Step>
+
+  <Step title="Join a meeting">
+    Drop a Google Meet or Zoom link into your agent chat. The agent automatically detects it and activates the `pikastream-video-meeting` skill.
+
+    The agent will:
+    1. Check your avatar and voice are ready
+    2. Read your workspace context (MEMORY.md, identity files, recent activity)
+    3. Build a concise system prompt for the bot
+    4. Join the meeting as your AI avatar
+
+    ```bash
+    # The agent runs this join command:
+    python pikastream-video-meeting/scripts/pikastreaming_videomeeting.py join \
+      --meet-url https://meet.google.com/abc-defg-hij \
+      --bot-name "Your Name" \
+      --image identity/videomeeting-avatar.png \
+      --system-prompt-file /tmp/meeting_system_prompt.txt \
+      --voice-id your_voice_id_here
+    ```
+
+    Once joined, the agent will confirm: "I'm in the meeting."
+  </Step>
+
+  <Step title="Leave the meeting">
+    To leave, tell your agent: `leave`. The agent runs the leave command with the session ID from the join step.
+
+    ```bash
+    python pikastream-video-meeting/scripts/pikastreaming_videomeeting.py leave \
+      --session-id <session-id-from-join>
+    ```
+
+    After leaving, the agent retrieves and shares the meeting notes automatically.
+  </Step>
+
+  <Step title="Handle billing">
+    Before every join, the skill checks your credit balance. If your balance is below the minimum threshold, it automatically creates a checkout link:
+
+    ```json
+    {
+      "status": "needs_topup",
+      "balance": 0,
+      "product": "<credit pack name>",
+      "credits": 500,
+      "checkout_url": "https://...",
+      "message": "Open the checkout URL to purchase <credit pack name>. Waiting for payment..."
+    }
+    ```
+
+    Open the `checkout_url` in your browser to complete payment. The skill polls for payment automatically for up to 5 minutes. If payment completes within that window, the join proceeds automatically. If the timeout is exceeded, re-run the join command after paying.
+  </Step>
+</Steps>
+
+## What's next
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="pikastream-video-meeting" icon="video" href="/skills/pikastream-video-meeting">
+    Full documentation for the video meeting skill — all commands, parameters, and advanced options.
+  </Card>
+  <Card title="Command reference" icon="terminal" href="/reference/commands">
+    Complete reference for every flag and subcommand.
+  </Card>
+  <Card title="Environment variables" icon="key" href="/reference/environment-variables">
+    All environment variables used by Pika Skills scripts.
+  </Card>
+  <Card title="Contributing" icon="code-pull-request" href="/reference/contributing">
+    Build and contribute your own skills to the repository.
+  </Card>
 </CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
